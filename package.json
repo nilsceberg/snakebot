@@ -17,6 +17,7 @@
         "json-socket": "^0.3.0",
         "minimist": "^1.2.0",
         "opn": "^5.4.0",
+        "typescript": "^3.7.2",
         "ws": "^6.1.4"
     },
     "optionalDependencies": {

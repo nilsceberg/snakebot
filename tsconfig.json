@@ -1,0 +1,11 @@
+{
+	"compilerOptions": {
+		"module": "commonjs",
+		"target": "es2018",
+		"noImplicitAny": false,
+		"outDir": "build",
+		"experimentalDecorators": true,
+		"sourceMap": true
+	},
+	"include": ["snakepit"]
+}

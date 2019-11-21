@@ -1,20 +1,27 @@
 /**
  * Snake Bot script.
  */
-const MapUtils = require('../domain/mapUtils.js');
+//const MapUtils = //require('../domain/mapUtils.js');
+import * as MapUtils from "../domain/mapUtils";
+import { Direction as Dir } from "../domain/mapUtils";
+import { GameMap } from "../domain/mamba/gameMap";
+
+interface MapState {
+	getMap(): GameMap;
+}
 
 let log = null; // Injected logger
 
-let us = null;
+let us: string = null;
 let target = null;
 
-function onMapUpdated(mapState, myUserId) {
+function onMapUpdated(mapState: MapState, myUserId: string) {
 	us = myUserId;
 
 	const map = mapState.getMap();
-	let direction = 'DOWN'; // <'UP' | 'DOWN' | 'LEFT' | 'RIGHT'>
+	let direction: MapUtils.Direction = "DOWN";
 
-	const snakeBrainDump = {
+	const snakeBrainDump: any = {
 		target: target,
 	}; // Optional debug information about the snakes current state of mind.
 
@@ -93,8 +100,8 @@ const movementDeltas = [
 	{ direction: "LEFT", x: -1, y: 0 },
 ];
 
-const directions = [
-	"UP", "RIGHT", "DOWN", "LEFT",
+const directions: MapUtils.Direction[] = [
+	"UP", "RIGHT", "DOWN", "LEFT"
 ];
 
 const directionDelta = {
@@ -104,7 +111,7 @@ const directionDelta = {
 	LEFT: { x: -1, y: 0 },
 };
 
-function ensurePersonalSpace(id, map, direction) {
+function ensurePersonalSpace(id: string, map: GameMap, direction: MapUtils.Direction) {
 	const coords = MapUtils.getSnakeCoordinates(id, map);
 	const newCoords = getNewCoords(getNewCoords(coords, direction), direction);
 
@@ -112,7 +119,8 @@ function ensurePersonalSpace(id, map, direction) {
 		const dangerRatings = directions.map(direction => ({
 			direction,
 			rating: dangerRating(
-				getNewCoords(getNewCoords(getNewCoords(coords, direction))),
+				getNewCoords(getNewCoords(getNewCoords(coords, direction), direction), direction),
+				map,
 				3,
 			)
 		}));
@@ -135,7 +143,7 @@ function deadEndSize(coords, map) {
 	return dfs2(coords, map, avoid, {}, 50, 0);
 }
 
-function bestDeadEndDirection(coords, map) {
+function bestDeadEndDirection(coords, map): Dir {
 	const sorted = directions
 		.map(d => ({ direction: d, coords: getNewCoords(coords, d) }))
 		.map(c => ({ direction: c.direction, size: deadEndSize(c.coords, map) }))
@@ -208,8 +216,13 @@ function neighbours(coords, map) {
 		.map(coord => MapUtils.translateCoordinate(coord, map.getWidth()));
 }
 
+function posKeys(tiles: MapUtils.TileMap): MapUtils.Position[] {
+	const positions = <MapUtils.Position[]><any>Object.keys(tiles);
+	return positions;
+}
+
 function dangerClose(coords, map, radius) {
-	return Object.keys(dangerousTiles(map)).filter(pos => {
+	return posKeys(dangerousTiles(map)).filter((pos: MapUtils.Position) => {
 		const tileCoords = MapUtils.translatePosition(pos, map.getWidth());
 		return MapUtils.getManhattanDistance(coords, tileCoords) <= radius;
 	}).length > 0 || partOfSquareOutsideMap(coords, radius, map) > 0;
@@ -218,12 +231,12 @@ function dangerClose(coords, map, radius) {
 function dangerRating(coords, map, radius) {
 	const tiles = MapUtils.getOccupiedMapTiles(map);
 	let rating = 0;
-	Object.keys(tiles).filter(pos => {
+	posKeys(tiles).filter(pos => {
 		const tileCoords = MapUtils.translatePosition(pos, map.getWidth());
 		return MapUtils.getManhattanDistance(coords, tileCoords) <= radius;
 	}).forEach(pos => {
 		const tile = tiles[pos];
-		if (tile !== "food") {
+		if (tile.content !== "food") {
 			rating++;
 		}
 	});
@@ -236,7 +249,7 @@ function dangerRating(coords, map, radius) {
 function dangerousTiles(map) {
 	const tiles = MapUtils.getOccupiedMapTiles(map);
 	for (const pos in tiles) {
-		if (tiles[pos] === "food") {
+		if (tiles[pos].content === "food") {
 			delete tiles[pos];
 		}
 	}
@@ -389,7 +402,7 @@ function onGameResult(event) {
 	// Implement as needed.
 }
 
-module.exports = {
+export {
 	bootStrap,
 	onGameEnded,
 	onGameResult,
@@ -398,4 +411,5 @@ module.exports = {
 	onSnakeDied,
 	onTournamentEnded
 };
+
 
