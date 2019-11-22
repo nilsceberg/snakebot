@@ -14,7 +14,8 @@ import {
 	translatePosition,
 	Tile,
 	getOccupiedMapTiles,
-	OccupiedMap
+	OccupiedMap,
+	getTileAt
 } from "../snakepit/myMapUtils";
 
 import * as util from "util";
@@ -195,7 +196,7 @@ const canTrapTagger = (map: GameMap, myId: string) => tagger(
 			const maxAfter = Math.max(0, ...getNeighbors(snakeHead).map(
 				x => dfs(map, x, Object.assign({}, visited), 0, 80)
 			));
-			log(`${info.getName()}/${info.getId()}, ${maxBefore} - ${maxAfter}`);
+			//log(`${info.getName()}/${info.getId()}, ${maxBefore} - ${maxAfter}`);
 
 			if (maxBefore - maxAfter > distanceTraveled) {
 				return [true, null];
@@ -225,7 +226,7 @@ function search(myId: string, map: GameMap, coord: Coordinate, depth: number): M
 	let neighbors = getNeighbors(coord)
 		.map(x => tag(x, !isTileAvailableForMovementTo(x, map, precomputed) ? new DeathTag : null))
 		.map(x => tag(x, new RandomTag))
-		.map(x => tag(x, new RoomSizeTag(dfs(map, x, {}, 0, DFS_MAX))))
+		.map(x => tag(x, new RoomSizeTag(dfsScore(map, x, {}, 0, DFS_MAX, 0))))
 		.map(canTrapTagger(map, myId))
 		.map(possibleCollisionTagger(map, myId, nextHeads))
 
@@ -262,6 +263,49 @@ function dfs(map: GameMap, coord: Coordinate, visited: { [pos: number]: boolean 
 	const neighbors = getNeighbors(coord);
 	return Math.max(
 		0, ...neighbors.map(c => dfs(map, c, visited, depth + 1, maxDepth))
+	);
+}
+
+function dfsScore(map: GameMap, coord: Coordinate, visited: { [pos: number]: boolean }, depth: number, maxDepth: number, score: number): number {
+	if (depth === 0) {
+		dfsKillSwitch = false;
+	}
+
+	const isTileAvailable = (c: Coordinate) =>
+		isTileAvailableForMovementTo(c, map, precomputed)
+		&& !visited[translateCoordinate(c, map.getWidth())];
+	
+	const pos = translateCoordinate(coord, map.getWidth());
+	const dead = !isTileAvailable(coord);
+	const bottom = depth === maxDepth;
+	
+	dfsKillSwitch = dfsKillSwitch || bottom;
+
+	if (dead || bottom || dfsKillSwitch) {
+		return score;
+	}
+
+	// Penalize according to neighbors
+	const neighborScore = getNeighbors(coord)
+		.map(c => getTileAt(c, map, precomputed))
+		.map(t => {
+			switch(t.content) {
+				case "snakehead":
+					return -10;
+				case "snakebody":
+				case "obstacle":
+				case "outofbounds":
+					return -5;
+				default:
+					return 0;
+			}
+		})
+		.reduce(sum, 0);
+
+	visited[pos] = true;
+	const neighbors = getNeighbors(coord);
+	return Math.max(
+		0, ...neighbors.map(c => dfsScore(map, c, visited, depth + 1, maxDepth, score + neighborScore + 1))
 	);
 }
 
