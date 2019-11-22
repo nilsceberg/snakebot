@@ -15,6 +15,11 @@ let log = null; // Injected logger
 let us: string = null;
 let target = null;
 
+interface RuleResult {
+	apply: boolean;
+	direction: MapUtils.Direction,
+}
+
 function onMapUpdated(mapState: MapState, myUserId: string) {
 	us = myUserId;
 
@@ -71,20 +76,28 @@ function onMapUpdated(mapState: MapState, myUserId: string) {
 	//log(`INITIAL AVOID: ${direction}`);
 
 	const beforePersonalSpace = direction;
-	direction = ensurePersonalSpace(myUserId, map, direction);
-	log(`PERSONAL: ${direction}`);
-
-	// If not changed by higher priority rule
-	if (direction === beforePersonalSpace) {
-		direction = bestDeadEndDirection(myCoords, map);
+	let result: RuleResult;
+	result = bestDeadEndDirection(myCoords, direction, map);
+	if (result.apply) {
+		direction = result.direction;
+		log(`DEAD END: ${direction}`);
 	}
-	//direction = avoid(direction, d => isDeadEnd(getNewCoords(myCoords, d), map));
-	log(`DEAD END: ${direction}`);
+	else {
+		result = basicAvoidance(myCoords, map, direction);
+		if (result.apply) {
+			direction = result.direction;
+			log(`AVOIDANCE`);
+		}
+		else {
+			result = ensurePersonalSpace(myUserId, map, direction);
+			if (result.apply) {
+				direction = result.direction;
+				log(`PERSONAL: ${direction}`);
+			}
+		}
+	}
 
-	direction = basicAvoidance(myCoords, map, direction);
 	log(`MOVING: ${direction}`);
-
-	//log(Object.keys(MapUtils.getOccupiedMapTiles(map).filter())
 
 	// 3. Then shake that snake!
 	return {
@@ -111,7 +124,7 @@ const directionDelta = {
 	LEFT: { x: -1, y: 0 },
 };
 
-function ensurePersonalSpace(id: string, map: GameMap, direction: MapUtils.Direction) {
+function ensurePersonalSpace(id: string, map: GameMap, direction: MapUtils.Direction): RuleResult {
 	const coords = MapUtils.getSnakeCoordinates(id, map);
 	const newCoords = getNewCoords(getNewCoords(coords, direction), direction);
 
@@ -125,10 +138,28 @@ function ensurePersonalSpace(id: string, map: GameMap, direction: MapUtils.Direc
 			)
 		}));
 		const leastDangerous = minRating(dangerRatings);
-		return leastDangerous.direction;
+
+		if (!canMoveInDirection(newCoords, leastDangerous.direction, map)) {
+			log("Wha?");
+			return {
+				apply: false,
+				direction: direction,
+			};
+		}
+		else {
+			log("Nah its fine");
+		}
+
+		return {
+			direction: leastDangerous.direction,
+			apply: true,
+		};
 	}
 	else {
-		return direction;
+		return {
+			direction,
+			apply: true,
+		};
 	}
 }
 
@@ -143,7 +174,15 @@ function deadEndSize(coords, map) {
 	return dfs2(coords, map, avoid, {}, 50, 0);
 }
 
-function bestDeadEndDirection(coords, map): Dir {
+function bestDeadEndDirection(coords: MapUtils.Coordinate, forward: Dir, map: GameMap): RuleResult {
+	const forwardSize = deadEndSize(getNewCoords(coords, forward), map);
+	if (forwardSize > 50) {
+		return {
+			apply: false,
+			direction: forward
+		}
+	}
+
 	const sorted = directions
 		.map(d => ({ direction: d, coords: getNewCoords(coords, d) }))
 		.map(c => ({ direction: c.direction, size: deadEndSize(c.coords, map) }))
@@ -151,7 +190,10 @@ function bestDeadEndDirection(coords, map): Dir {
 
 	log(sorted);
 		
-	return sorted[0].direction;
+	return {
+		apply: true,
+		direction: sorted[0].direction,
+	};
 }
 
 function shouldAvoid(coords, map, avoid) {
@@ -290,8 +332,19 @@ function canMoveInDirection(coords, direction, map) {
 		&& !MapUtils.isCoordinateOutOfBounds(getNewCoords(coords, direction), map);
 }
 
-function basicAvoidance(coords, map, direction) {
-	return avoid(direction, d => !canMoveInDirection(coords, d, map));
+function basicAvoidance(coords, map, direction): RuleResult {
+	if (!canMoveInDirection(coords, direction, map)) {
+		return {
+			apply: true,
+			direction: avoid(direction, d => !canMoveInDirection(coords, d, map)),
+		};
+	}
+	else {
+		return {
+			apply: false,
+			direction: direction,
+		}
+	}
 }
 
 function willDie(userId, map, direction) {

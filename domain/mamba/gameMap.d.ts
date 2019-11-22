@@ -6,6 +6,6 @@ export interface GameMap {
 	getWorldTick(): number;
 	getFoodPositions(): Position[];
 	getObstaclePositions(): Position[];
-	getSnakeInfo(): SnakeInfo[];
+	getSnakeInfos(): SnakeInfo[];
 	getSnakeInfoForId(playerId: string): SnakeInfo;
 }

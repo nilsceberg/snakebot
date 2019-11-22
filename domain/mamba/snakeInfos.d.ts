@@ -9,6 +9,6 @@ export interface SnakeInfo {
 	getName(): string;
 	getPoints(): number;
 	getPositions(): Position[];
-	getId(): number;
+	getId(): string;
 	isAlive(): boolean;
 }
