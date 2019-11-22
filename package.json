@@ -13,6 +13,7 @@
         "doc": "jsdoc ./domain/** -d doc/html; jsdox ./domain/** --output doc/markdown"
     },
     "dependencies": {
+        "@types/node": "^12.12.11",
         "dateformat": "^3.0.3",
         "json-socket": "^0.3.0",
         "minimist": "^1.2.0",
